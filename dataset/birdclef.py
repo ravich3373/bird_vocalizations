@@ -12,6 +12,7 @@ import pandas as pd
 #torch
 import torch
 from torch.utils.data import Dataset
+from pathlib import Path
 
 #shared
 from . import (_compute_split_boundaries, _get_inter_splits_by_group,
@@ -47,7 +48,7 @@ class BirdClef(Dataset):
         self.split_load()
 
     def split_load(self):
-        filenames = self.metadata.filename.values
+        filenames = [fl.replace(".ogg", ".wav") for fl in self.metadata.filename.values]
         split_probs = [('train', 0.7), ('validation', 0.1), ('test', 0.2)]
         splits = _get_inter_splits_by_group(list(zip(filenames,
                                                      self.metadata.author)),
