@@ -14,7 +14,7 @@ fi
 
 source="$1"
 datapath="${2:-.}"
-target="$datapath/birdclef2021"
+target="$datapath"
 mkdir -p "$target"
 cp -a "$source/train_metadata.csv" "$target/"
 source="$source/train_audio"
