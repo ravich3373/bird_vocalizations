@@ -32,14 +32,14 @@ save_every: 5
 # Training
 start_epoch: 1
 test_every_epoch: False
-epochs: 1
+epochs: 100
 warmup_steps: 1000
 save_best_model: "acc"
 model_name: "EfficientNet"
 ## opt
 frontend_lr_factor: 1
 lr: 0.001
-min_lr: 1e-5
+min_lr: 1e-6
 adam_eps: 1e-08
 ## sched
 scheduler: True

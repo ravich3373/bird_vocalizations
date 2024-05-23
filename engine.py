@@ -13,6 +13,7 @@ from torchvision.utils import make_grid
 #processing
 import numpy as np
 from tqdm.auto import tqdm
+from sklearn.metrics import roc_auc_score
 
 #tensorboard
 from torch.utils.tensorboard import SummaryWriter
@@ -38,6 +39,28 @@ def accuracy(logits, targets):
     """
     return (logits.argmax(dim=-1) == targets).float().mean()
 
+@torch.no_grad()
+def roc_auc(logits, targets):
+    """
+    Compute the accuracy for given logits and targets.
+
+    Parameters
+    ----------
+    logits : (N, K) torch.Tensor
+        A mini-batch of logit vectors from the network.
+    targets : (N, ) torch.Tensor
+        A mini_batch of target scalars representing the labels.
+
+    Returns
+    -------
+    acc : () torch.Tensor
+        The accuracy over the mini-batch of samples.
+    """
+    #targets_np = np.zeros((1,182))
+    #targets_np[targets.item()] = 1
+    return roc_auc_score(targets.cpu().detach().numpy(), logits.cpu().detach().softmax(-1).numpy(), average='macro', multi_class='ovo')
+
+
 #iterator functions
 def _forward(network, data_loader, criterion):
     device = next(network.parameters()).device
@@ -51,7 +74,7 @@ def _forward(network, data_loader, criterion):
         yield loss
 
 @torch.no_grad()
-def _forward_eval(network, data_loader, criterion, acc_criterion=accuracy):
+def _forward_eval(network, data_loader, criterion, acc_criterion=accuracy, auc_criterion=roc_auc):
     device = next(network.parameters()).device
 
     def unbatched_predictions():
@@ -70,24 +93,33 @@ def _forward_eval(network, data_loader, criterion, acc_criterion=accuracy):
 
     for id, logits, loss, y_true in aggregated_by_id():
         acc = acc_criterion(logits, y_true)
-        yield loss, acc
+        #auc = auc_criterion(logits, y_true)
+        ys = torch.zeros(182)
+        ys[y_true.item()] = 1
+        yield loss, acc, ys, logits.cpu().detach()
+
 
 #main training/eval functions
 @torch.no_grad()
 def evaluate(network, data_loader, criterion, tqdm_batch=None):
     losses = []
     accs = []
+    logits_ep = []
+    y_true_ep = []
 
     network.eval()
     if tqdm_batch is not None: tqdm_batch.reset()
-    for loss, acc in _forward_eval(network, data_loader, criterion):
+    for loss, acc, y_true, logits in _forward_eval(network, data_loader, criterion):
         losses.append(float(loss.item()))
         accs.append(float(acc.item()))
+        y_true_ep.append(y_true)
+        logits_ep.append(logits)
         if tqdm_batch is not None: tqdm_batch.update()
     if tqdm_batch is not None: tqdm_batch.refresh()
 
+    auc = roc_auc(torch.cat(logits_ep, 0), torch.cat(y_true_ep, 0))
     torch.cuda.empty_cache()
-    return losses, accs
+    return losses, accs, auc
 
 
 @torch.enable_grad()
@@ -205,6 +237,7 @@ def train(network, loader_train, loader_val, loader_test, path,
     #get basline val acc
     best_loss_val = None
     best_acc_val = None
+    best_auc_val = None
     
     #training loop
     for epoch in range(start, num_epochs + 1):
@@ -221,28 +254,33 @@ def train(network, loader_train, loader_val, loader_test, path,
         if tqdm_on:
             tqdm_epoch.set_description(f"Epoch {epoch}")
         loss_train = update(network, loader_train, criterion, optimizer, warmup_sched, tqdm_train)
-        loss_val, acc_val = evaluate(network, loader_val, criterion, tqdm_val)
+        loss_val, acc_val, auc_val = evaluate(network, loader_val, criterion, tqdm_val)
         if test_every_epoch:
-            loss_test, acc_test = evaluate(network, loader_test, criterion, tqdm_test)
+            loss_test, acc_test, auc_test = evaluate(network, loader_test, criterion, tqdm_test)
 
         #Calc mean metrics
         mean_loss = np.mean(loss_train).item()
         mean_loss_val = np.mean(loss_val).item()
         mean_acc_val = np.mean(acc_val).item()
+        mean_auc_val = np.mean(auc_val).item()
         if test_every_epoch:
             mean_loss_test = np.mean(loss_test).item()
             mean_acc_test = np.mean(acc_test).item()
+            mean_auc_test = np.mean(auc_test).item()
         #set best if not already done
         best_loss_val = mean_loss_val if best_loss_val is None else best_loss_val
         best_acc_val = mean_acc_val if best_acc_val is None else best_acc_val
+        best_auc_val = mean_auc_val if best_auc_val is None else best_auc_val
         
         #Tensorboard writing
         writer.add_scalar("loss/train loss", mean_loss, epoch)
         writer.add_scalar("loss/val loss", mean_loss_val, epoch)
         writer.add_scalar("acc/val acc", mean_acc_val, epoch)
+        writer.add_scalar("acc/val auc", mean_auc_val, epoch)
         if test_every_epoch:
             writer.add_scalar("loss/test loss", mean_loss_test, epoch)
             writer.add_scalar("acc/test acc", mean_acc_test, epoch)
+            writer.add_scalar("acc/test auc", mean_auc_test, epoch)
             writer.add_scalar("misc/global lr", optimizer.param_groups[0]["lr"], epoch)
 
         #add weights and gradient movement to the writer
@@ -256,20 +294,23 @@ def train(network, loader_train, loader_val, loader_test, path,
 
         #update tqdm or print to console
         if tqdm_on:
-            test_metrics = (dict(loss_test=mean_loss_test, acc_test=100. * mean_acc_test)
+            test_metrics = (dict(loss_test=mean_loss_test, acc_test=100. * mean_acc_test, auc_test=mean_auc_test)
                             if test_every_epoch else {})
             tqdm_epoch.set_postfix(loss=mean_loss, 
                                    loss_val=mean_loss_val,
                                    acc_val=100. * mean_acc_val,
+                                   auc_val=mean_auc_val,
                                    **test_metrics)
         else:
             test_metrics = (("Test_Loss: {:.5f}".format(mean_loss_test),
-                             "Test_Acc: {:.5f}".format(mean_acc_test))
+                             "Test_Acc: {:.5f}".format(mean_acc_test),
+                             "Test_AUC: {:.5f}".format(mean_auc_test))
                             if test_every_epoch else ())
             print( "Epoch: {}/{} - ".format(epoch, num_epochs), #print out status
                    "Avg_Loss: {:.5f} -".format(mean_loss),
                    "Eval_Loss: {:.5f}".format(mean_loss_val),
                    "Eval_Acc: {:.5f}".format(mean_acc_val),
+                   "Eval_Auc: {:.5f}".format(mean_auc_val),
                    *test_metrics)
         
         
@@ -283,6 +324,14 @@ def train(network, loader_train, loader_val, loader_test, path,
                        path_network_save)
 
         #save if best model
+        if save_best_model == 'auc':
+            if mean_auc_val > best_auc_val:
+                torch.save({'epoch': epoch, 
+                            'network': network.state_dict(), 
+                            'optimizer': optimizer.state_dict(),
+                            'scheduler':  scheduler.state_dict() if scheduler is not None else None},
+                           os.path.join(model_path, "net_best_model.pth"))
+                best_auc_val = mean_auc_val
         if save_best_model == 'acc':
             if mean_acc_val > best_acc_val:
                 torch.save({'epoch': epoch, 
@@ -306,6 +355,8 @@ def train(network, loader_train, loader_val, loader_test, path,
                 scheduler.step(mean_acc_val)
             if scheduler_item == 'loss':
                 scheduler.step(mean_loss_val)
+            if scheduler_item == 'auc':
+                scheduler.step(mean_auc_val)
             if optimizer.param_groups[0]['lr'] < scheduler_min_lr:
                 print('Learning rate fell below threshold. Stopping training.')
                 break
@@ -324,14 +375,17 @@ def train(network, loader_train, loader_val, loader_test, path,
     if not test_every_epoch:
         if tqdm_on:
             tqdm_test = tqdm(total=len(getattr(loader_test.dataset, 'dataset', loader_test.dataset)), desc= 'Test_Batch', leave= False)
-        loss_test, acc_test = evaluate(network, loader_test, criterion, tqdm_test)
+        loss_test, acc_test, auc_test = evaluate(network, loader_test, criterion, tqdm_test)
         mean_loss_test = np.mean(loss_test).item()
         mean_acc_test = np.mean(acc_test).item()
+        mean_auc_test = np.mean(auc_test).item()
         writer.add_scalar("loss/test loss", mean_loss_test, epoch)
         writer.add_scalar("acc/test acc", mean_acc_test, epoch)
+        writer.add_scalar("acc/test auc", mean_auc_test, epoch)
         writer.add_scalar("misc/global lr", optimizer.param_groups[0]["lr"], epoch)
         print("Test_Loss: {:.5f}".format(mean_loss_test),
-              "Test_Acc: {:.5f}".format(mean_acc_test))
+              "Test_Acc: {:.5f}".format(mean_acc_test),
+              "Test_Auc: {:.5f}".format(mean_auc_test))
 
     # ensure tensorboard has written out everything
     # (https://github.com/pytorch/pytorch/issues/24234)
@@ -342,5 +396,7 @@ def train(network, loader_train, loader_val, loader_test, path,
         f.writelines("%s=%g\n" % item for item in [
             ('eval_loss', mean_loss_val),
             ('eval_acc', mean_acc_val),
+            ('eval_auc', mean_auc_val),
             ('test_loss', mean_loss_test),
-            ('test_acc', mean_acc_test)])
+            ('test_acc', mean_acc_test),
+            ('test_auc', mean_auc_test)])
