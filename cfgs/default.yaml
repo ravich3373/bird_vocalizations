@@ -7,7 +7,7 @@ num_workers: 6
 prefetch_factor: 2
 pin_mem: True
 # pre-proc
-input_size: 16000 # check if this is good? unlikely!
+input_size: 80000 # check if this is good? unlikely!
 eval_overlap: 0
 eval_pad: "drop" # drop, zero, overlap
 compression: "PCEN"
@@ -34,7 +34,7 @@ start_epoch: 1
 test_every_epoch: False
 epochs: 100
 warmup_steps: 1000
-save_best_model: "acc"
+save_best_model: "auc"
 model_name: "EfficientNet"
 ## opt
 frontend_lr_factor: 1
