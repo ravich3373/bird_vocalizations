@@ -195,8 +195,8 @@ def train(network, loader_train, loader_val, loader_test, path,
           model_name= 'default', writer_add_frontendparams = True): # TB parameters
     
     #quick asserts
-    assert save_best_model == 'loss' or save_best_model == 'acc', 'save_best_model must be "loss" or "acc" of the validation set'
-    assert scheduler_item == 'loss' or scheduler_item == 'acc' or scheduler_item == None, 'scheduler_item must be "loss" or "acc" of the validation set or None if no scheduler is used'
+    assert save_best_model == 'loss' or save_best_model == 'acc' or save_best_model == "auc", 'save_best_model must be "loss" or "acc" of the validation set'
+    assert scheduler_item == 'loss' or scheduler_item == 'acc' or scheduler_item == None or scheduler_item == "auc", 'scheduler_item must be "loss" or "acc" of the validation set or None if no scheduler is used'
     
     #set starting epoch
     model_path = os.path.join(path, 'models', model_name)
