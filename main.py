@@ -16,11 +16,11 @@ from engine import train
 
 # Default LEAF parameters
 n_filters = 40
-sample_rate = 16000
+sample_rate = 32000
 window_len = 25.0
 window_stride = 10.0
-min_freq = 60.0
-max_freq = 7800.0
+min_freq = 20 #60.0
+max_freq = 15000 #7800.0
 
 
 def criterion_and_optimizer(cfg, network):

@@ -7,7 +7,7 @@ num_workers: 6
 prefetch_factor: 2
 pin_mem: True
 # pre-proc
-input_size: 80000 # check if this is good? unlikely!
+input_size: 160000 # check if this is good? unlikely!
 eval_overlap: 0
 eval_pad: "drop" # drop, zero, overlap
 compression: "PCEN"

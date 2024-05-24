@@ -90,11 +90,11 @@ class BirdClef(Dataset):
 ## Build dataset function returns all 3 dataloaders
 def build_dataset(args):
     # test on full recordings
-    test_set = BirdClef(root=args.data_path, split='test', seed=0, sample_rate=16000)
+    test_set = BirdClef(root=args.data_path, split='test', seed=0, sample_rate=32000)
     # validate on first 16 seconds
-    val_set = BirdClef(root=args.data_path, split='validation', seed=0, sample_rate=16000, fixed_crop=16*16000)
+    val_set = BirdClef(root=args.data_path, split='validation', seed=0, sample_rate=32000, fixed_crop=16*32000)
     # train on random excerpt (args.input_size)
-    train_set = BirdClef(root=args.data_path, split='train', seed=0, sample_rate=16000, random_crop=args.input_size)
+    train_set = BirdClef(root=args.data_path, split='train', seed=0, sample_rate=32000, random_crop=args.input_size)
     train_loader, val_loader, test_loader = build_dataloaders(
         train_set, val_set, test_set,
         label_transform_fn=None, args=args)
