@@ -20,7 +20,7 @@ from . import (_compute_split_boundaries, _get_inter_splits_by_group,
 
 
 class BirdClef(Dataset):
-    def __init__(self, root = '/content', split='train', seed=0, sample_rate=16000,
+    def __init__(self, root = '/content', split='train', seed=0, sample_rate=32000,
                  fixed_crop=None, random_crop=None):
         #same seed for train and test(!)
         assert split == 'test' or split == 'train' or split == 'validation', 'split must be "train", "validation" or "test"'

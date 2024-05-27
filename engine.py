@@ -58,7 +58,7 @@ def roc_auc(logits, targets):
     """
     #targets_np = np.zeros((1,182))
     #targets_np[targets.item()] = 1
-    return roc_auc_score(targets.cpu().detach().numpy(), logits.cpu().detach().softmax(-1).numpy(), average='macro', multi_class='ovo')
+    return roc_auc_score(targets.cpu().detach().numpy(), logits.cpu().detach().softmax(-1).numpy(), average='macro', multi_class='ovr')
 
 
 #iterator functions
