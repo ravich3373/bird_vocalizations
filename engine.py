@@ -256,6 +256,13 @@ def train(network, loader_train, loader_val, loader_test, path,
         if tqdm_on:
             tqdm_epoch.set_description(f"Epoch {epoch}")
         loss_train = update(network, loader_train, criterion, optimizer, warmup_sched, tqdm_train)
+        # cpu usage
+        cpu_pct = psutil.cpu_percent(interval=3)
+        mem_pct = psutil.virtual_memory().percent
+        GPUs = GPUtil.getGPUs()
+        gpu_comp_pct = GPUs[0].load
+        gpu_mem_pct = GPUs[0].memoryUtil
+        #
         loss_val, acc_val, auc_val = evaluate(network, loader_val, criterion, tqdm_val)
         if test_every_epoch:
             loss_test, acc_test, auc_test = evaluate(network, loader_test, criterion, tqdm_test)
@@ -294,12 +301,7 @@ def train(network, loader_train, loader_val, loader_test, path,
                 except ValueError:
                     pass
         
-        # cpu usage
-        cpu_pct = psutil.cpu_percent(interval=3)
-        mem_pct = psutil.virtual_memory().percent
-        GPUs = GPUtil.getGPUs()
-        gpu_comp_pct = GPUs[0].load
-        gpu_mem_pct = GPUs[0].memoryUtil
+        
         #update tqdm or print to console
         if tqdm_on:
             test_metrics = (dict(loss_test=mean_loss_test, acc_test=100. * mean_acc_test, auc_test=mean_auc_test)
