@@ -48,12 +48,13 @@ class BirdClef(Dataset):
         self.split_load()
 
     def split_load(self):
-        filenames = [fl.replace(".ogg", ".wav") for fl in self.metadata.filename.values]
-        split_probs = [('train', 0.7), ('validation', 0.1), ('test', 0.2)]
+        #filenames = [fl.replace(".ogg", ".wav") for fl in self.metadata.filename.values]
+        filenames = [fl.replace(".ogg", ".ogg") for fl in self.metadata.filename.values][:8]
+        split_probs = [('train', 1), ('validation', 0), ('test', 0)] #[('train', 0.7), ('validation', 0.1), ('test', 0.2)]
         splits = _get_inter_splits_by_group(list(zip(filenames,
                                                      self.metadata.author)),
                                             split_probs, 0)
-        self.filenames = sorted(splits[self.split])
+        self.filenames = sorted(splits["train"])#sorted(splits[self.split])
         label_ids = dict((label, torch.tensor(idx)) for idx, label
                          in enumerate(sorted(set(self.metadata.primary_label))))
         self.labels = [label_ids[os.path.dirname(fn)] for fn in self.filenames]
@@ -64,8 +65,8 @@ class BirdClef(Dataset):
     def __getitem__(self, idx):
         # _, audio = wav_read(os.path.join(self.root_data, self.filenames[idx]),
         #                     mmap=True)
-        _, audio = wav_read(os.path.join(self.root_data, "train_audio", self.filenames[idx]), mmap=True)
-        #audio, _ = librosa.load(path=os.path.join(self.root_data, "train_audio", self.filenames[idx]), sr=None)
+        #_, audio = wav_read(os.path.join(self.root_data, "train_audio", self.filenames[idx]), mmap=True)
+        audio, _ = librosa.load(path=os.path.join(self.root_data, "train_audio", self.filenames[idx]), sr=None)
         if self.fixed_crop:
             audio = audio[:self.fixed_crop]
         if self.random_crop:
