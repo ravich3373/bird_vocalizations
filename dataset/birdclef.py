@@ -65,6 +65,7 @@ class BirdClef(Dataset):
         # _, audio = wav_read(os.path.join(self.root_data, self.filenames[idx]),
         #                     mmap=True)
         _, audio = wav_read(os.path.join(self.root_data, "train_audio", self.filenames[idx]), mmap=True)
+        #audio, _ = librosa.load(path=os.path.join(self.root_data, "train_audio", self.filenames[idx]), sr=None)
         if self.fixed_crop:
             audio = audio[:self.fixed_crop]
         if self.random_crop:

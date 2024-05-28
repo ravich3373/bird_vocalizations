@@ -9,6 +9,8 @@ import itertools
 #torch
 import torch
 from torchvision.utils import make_grid
+import psutil
+import GPUtil
 
 #processing
 import numpy as np
@@ -291,7 +293,13 @@ def train(network, loader_train, loader_val, loader_test, path,
                     writer.add_histogram(f'{name}.grad',weight.grad, epoch)
                 except ValueError:
                     pass
-
+        
+        # cpu usage
+        cpu_pct = psutil.cpu_percent(interval=3)
+        mem_pct = psutil.virtual_memory().percent
+        GPUs = GPUtil.getGPUs()
+        gpu_comp_pct = GPUs[0].load
+        gpu_mem_pct = GPUs[0].memoryUtil
         #update tqdm or print to console
         if tqdm_on:
             test_metrics = (dict(loss_test=mean_loss_test, acc_test=100. * mean_acc_test, auc_test=mean_auc_test)
@@ -300,6 +308,10 @@ def train(network, loader_train, loader_val, loader_test, path,
                                    loss_val=mean_loss_val,
                                    acc_val=100. * mean_acc_val,
                                    auc_val=mean_auc_val,
+                                   cp = cpu_pct,
+                                   mp = mem_pct,
+                                   gpu_cp = gpu_comp_pct,
+                                   gpu_mp = gpu_mem_pct,
                                    **test_metrics)
         else:
             test_metrics = (("Test_Loss: {:.5f}".format(mean_loss_test),
